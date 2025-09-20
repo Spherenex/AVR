@@ -1,154 +1,3 @@
-// import React, { useEffect, useState } from 'react';
-// import { initializeApp } from 'firebase/app';
-// import { getDatabase, ref, onValue } from 'firebase/database';
-// import { Line } from 'react-chartjs-2';
-// import 'chart.js/auto';
-// import './App.css';
-
-// // Firebase configuration provided by the user
-// const firebaseConfig = {
-//   apiKey: "AIzaSyB9ererNsNonAzH0zQo_GS79XPOyCoMxr4",
-//   authDomain: "waterdtection.firebaseapp.com",
-//   databaseURL: "https://waterdtection-default-rtdb.firebaseio.com",
-//   projectId: "waterdtection",
-//   storageBucket: "waterdtection.firebasestorage.app",
-//   messagingSenderId: "690886375729",
-//   appId: "1:690886375729:web:172c3a47dda6585e4e1810",
-//   measurementId: "G-TXF33Y6XY0"
-// };
-
-// // Initialize Firebase app and database
-// const app = initializeApp(firebaseConfig);
-// const database = getDatabase(app);
-
-// export default function App() {
-//   // Holds the latest values from the database
-//   const [data, setData] = useState({});
-//   // Holds historical data for each key to feed into charts
-//   const [history, setHistory] = useState({});
-
-//   useEffect(() => {
-//     // Reference to the AVR node in your database. Update this path if your data
-//     // lives somewhere else.
-//     const avrRef = ref(database, 'AVR');
-//     // Listen for realtime updates
-//     const unsubscribe = onValue(avrRef, (snapshot) => {
-//       const val = snapshot.val() || {};
-//       // Save the latest values
-//       setData(val);
-//       // Update chart history for each key except 'Any'
-//       setHistory((prevHistory) => {
-//         const updatedHistory = { ...prevHistory };
-//         Object.entries(val).forEach(([key, value]) => {
-//           if (key.toLowerCase() === 'any') return;
-//           if (!updatedHistory[key]) {
-//             updatedHistory[key] = [];
-//           }
-//           // Append new data point with a timestamp
-//           updatedHistory[key] = [
-//             ...updatedHistory[key],
-//             { time: Date.now(), value: value }
-//           ].slice(-20); // keep only the last 20 points
-//         });
-//         return updatedHistory;
-//       });
-//     });
-//     // Cleanup listener when component unmounts
-//     return () => unsubscribe();
-//   }, []);
-
-//   // Generate cards for each metric except 'Any'
-//   const metricCards = Object.entries(data)
-//     .filter(([key]) => key.toLowerCase() !== 'any')
-//     .map(([key, value]) => {
-//       // Create a CSS class name based on the key for custom styling
-//       const className = `card card-${key.toLowerCase()}`;
-//       return (
-//         <div className={className} key={key}>
-//           <h2 className="card-title">{key}</h2>
-//           <p className="card-value">{value}</p>
-//         </div>
-//       );
-//     });
-
-//   // Generate charts for each metric using its history
-//   const chartCards = Object.entries(history)
-//     .filter(([key]) => key.toLowerCase() !== 'system')
-//     .map(([key, values]) => {
-//       // Skip empty history arrays
-//       if (!values || values.length === 0) return null;
-//       // Use actual timestamps for labels
-//       const labels = values.map((d) => new Date(d.time).toLocaleTimeString());
-//       const dataSet = values.map((d) => {
-//         const num = parseFloat(d.value);
-//         return isNaN(num) ? d.value : num;
-//       });
-//       const chartData = {
-//         labels,
-//         datasets: [
-//           {
-//             label: key,
-//             data: dataSet,
-//             fill: false,
-//             borderColor: '#42a5f5',
-//             backgroundColor: 'rgba(66, 165, 245, 0.2)',
-//             tension: 0.25,
-//           },
-//         ],
-//       };
-//       return (
-//         <div className="chart-card" key={`chart-${key}`}>
-//           <h3 className="chart-title">{key} History</h3>
-//           <Line
-//             data={chartData}
-//             options={{
-//               responsive: true,
-//               maintainAspectRatio: false,
-//               layout: {
-//                 // Add padding at the bottom to accommodate x-axis labels
-//                 padding: { bottom: 20 },
-//               },
-//               scales: {
-//                 x: {
-//                   // Show x-axis labels properly by limiting tick count
-//                   ticks: {
-//                     maxTicksLimit: 4,
-//                     color: '#666',
-//                   },
-//                   grid: {
-//                     display: false,
-//                   },
-//                 },
-//                 y: {
-//                   ticks: {
-//                     color: '#666',
-//                   },
-//                   grid: {
-//                     color: 'rgba(0,0,0,0.1)',
-//                   },
-//                 },
-//               },
-//               plugins: {
-//                 legend: {
-//                   display: false,
-//                 },
-//               },
-//             }}
-//           />
-//         </div>
-//       );
-//     });
-
-//   return (
-//     <div className="dashboard-container">
-//       <h1 className="dashboard-title">Advance Voltage Regulatory System</h1>
-//       <div className="cards-container">{metricCards}</div>
-//       <div className="charts-container">{chartCards}</div>
-//     </div>
-//   );
-// }
-
-
 import React, { useEffect, useState } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue } from 'firebase/database';
@@ -214,6 +63,11 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Helper function to get display name
+  const getDisplayName = (key) => {
+    return key.toLowerCase() === 'line' ? 'Grid' : key;
+  };
+
   // Card styles based on metric types
   const getCardStyle = (key) => {
     const keyLower = key.toLowerCase();
@@ -257,6 +111,7 @@ export default function App() {
     .filter(([key]) => key.toLowerCase() !== 'any')
     .map(([key, value]) => {
       const { icon, bgGradient } = getCardStyle(key);
+      const displayName = getDisplayName(key);
       
       return (
         <div 
@@ -266,7 +121,7 @@ export default function App() {
         >
           <div className="card-content">
             <span className="card-icon">{icon}</span>
-            <h2 className="card-title">{key}</h2>
+            <h2 className="card-title">{displayName}</h2>
             <div className="card-value-container">
               <p className="card-value">{value}</p>
             </div>
@@ -291,6 +146,8 @@ export default function App() {
       });
       
       const { bgGradient } = getCardStyle(key);
+      const displayName = getDisplayName(key);
+      
       // Extract color from gradient for chart
       const chartColor = bgGradient.includes('blue') ? '#42a5f5' : 
                          bgGradient.includes('green') ? '#66bb6a' : 
@@ -302,7 +159,7 @@ export default function App() {
         labels,
         datasets: [
           {
-            label: key,
+            label: displayName,
             data: dataSet,
             fill: true,
             borderColor: chartColor,
@@ -321,7 +178,7 @@ export default function App() {
             <span className="chart-icon" style={{ background: bgGradient }}>
               {getCardStyle(key).icon}
             </span>
-            {key} History
+            {displayName} History
           </h3>
           <div className="chart-container">
             <Line

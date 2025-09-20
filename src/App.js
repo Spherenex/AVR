@@ -29,6 +29,21 @@ export default function App() {
   // Loading state
   const [loading, setLoading] = useState(true);
 
+  // Initialize history with current data when data first loads (after refresh)
+  useEffect(() => {
+    if (Object.keys(data).length > 0 && Object.keys(history).length === 0) {
+      const initialHistory = {};
+      const currentTime = Date.now();
+      
+      Object.entries(data).forEach(([key, value]) => {
+        if (key.toLowerCase() === 'any') return;
+        initialHistory[key] = [{ time: currentTime, value: value }];
+      });
+      
+      setHistory(initialHistory);
+    }
+  }, [data, history]);
+
   useEffect(() => {
     // Reference to the AVR node in your database
     const avrRef = ref(database, 'AVR');
@@ -44,17 +59,29 @@ export default function App() {
       // Update chart history for each key except 'Any'
       setHistory((prevHistory) => {
         const updatedHistory = { ...prevHistory };
+        const currentTime = Date.now();
+        
         Object.entries(val).forEach(([key, value]) => {
           if (key.toLowerCase() === 'any') return;
+          
           if (!updatedHistory[key]) {
             updatedHistory[key] = [];
           }
-          // Append new data point with a timestamp
-          updatedHistory[key] = [
-            ...updatedHistory[key],
-            { time: Date.now(), value: value }
-          ].slice(-20); // keep only the last 20 points
+          
+          // Only add new point if value has changed or this is the first data point
+          const lastEntry = updatedHistory[key][updatedHistory[key].length - 1];
+          const shouldAddPoint = !lastEntry || 
+                                lastEntry.value !== value || 
+                                updatedHistory[key].length === 0;
+          
+          if (shouldAddPoint) {
+            updatedHistory[key] = [
+              ...updatedHistory[key],
+              { time: currentTime, value: value }
+            ].slice(-20); // keep only the last 20 points
+          }
         });
+        
         return updatedHistory;
       });
     });
@@ -135,7 +162,7 @@ export default function App() {
   const chartCards = Object.entries(history)
     .filter(([key]) => key.toLowerCase() !== 'system')
     .map(([key, values]) => {
-      // Skip empty history arrays
+      // Skip empty history arrays or null/undefined values
       if (!values || values.length === 0) return null;
       
       // Use actual timestamps for labels
@@ -246,7 +273,7 @@ export default function App() {
           </div>
         </div>
       );
-    });
+    }).filter(Boolean); // Remove any null entries
 
   return (
     <div className="dashboard-container">

@@ -158,6 +158,25 @@ export default function App() {
       );
     });
 
+  // Helper function to convert string values to numbers for charting
+  const convertValueForChart = (value, allValues) => {
+    const num = parseFloat(value);
+    if (!isNaN(num)) {
+      return num; // Already a number
+    }
+    
+    // Handle string values by creating a mapping
+    const stringValue = String(value).toUpperCase();
+    
+    // Create a unique set of all string values for this dataset
+    const uniqueStrings = [...new Set(allValues.map(v => String(v).toUpperCase()))];
+    uniqueStrings.sort(); // Sort for consistent mapping
+    
+    // Map string to number (starting from 1)
+    const index = uniqueStrings.indexOf(stringValue);
+    return index >= 0 ? index + 1 : 0;
+  };
+
   // Generate charts for each metric using its history
   const chartCards = Object.entries(history)
     .filter(([key]) => key.toLowerCase() !== 'system')
@@ -167,10 +186,15 @@ export default function App() {
       
       // Use actual timestamps for labels
       const labels = values.map((d) => new Date(d.time).toLocaleTimeString());
-      const dataSet = values.map((d) => {
-        const num = parseFloat(d.value);
-        return isNaN(num) ? d.value : num;
-      });
+      
+      // Get all values for this dataset to create consistent mapping
+      const allValues = values.map(d => d.value);
+      
+      // Convert values for charting (strings to numbers, preserve numbers)
+      const dataSet = values.map((d) => convertValueForChart(d.value, allValues));
+      
+      // Keep original values for tooltips
+      const originalValues = values.map(d => d.value);
       
       const { bgGradient } = getCardStyle(key);
       const displayName = getDisplayName(key);
@@ -192,12 +216,19 @@ export default function App() {
             borderColor: chartColor,
             backgroundColor: `${chartColor}20`, // 20 = 12.5% opacity
             borderWidth: 2,
-            pointRadius: 3,
+            pointRadius: 4,
             pointBackgroundColor: chartColor,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1,
             tension: 0.4,
           },
         ],
       };
+      
+      // Check if we have string values to create custom Y-axis labels
+      const hasStringValues = allValues.some(v => isNaN(parseFloat(v)));
+      const uniqueStringValues = hasStringValues ? 
+        [...new Set(allValues.map(v => String(v).toUpperCase()))].sort() : [];
       
       return (
         <div className="chart-card" key={`chart-${key}`}>
@@ -234,11 +265,21 @@ export default function App() {
                       color: '#666',
                       font: {
                         size: 10
+                      },
+                      callback: function(value, index, values) {
+                        // If we have string values, show them instead of numbers
+                        if (hasStringValues && uniqueStringValues[value - 1]) {
+                          return uniqueStringValues[value - 1];
+                        }
+                        return value;
                       }
                     },
                     grid: {
                       color: 'rgba(0,0,0,0.05)',
                     },
+                    beginAtZero: hasStringValues,
+                    max: hasStringValues ? uniqueStringValues.length : undefined,
+                    min: hasStringValues ? 1 : undefined,
                   },
                 },
                 plugins: {
@@ -256,7 +297,9 @@ export default function App() {
                     usePointStyle: true,
                     callbacks: {
                       label: function(context) {
-                        return `${context.dataset.label}: ${context.parsed.y}`;
+                        // Show original value in tooltip
+                        const originalValue = originalValues[context.dataIndex];
+                        return `${context.dataset.label}: ${originalValue}`;
                       }
                     }
                   }

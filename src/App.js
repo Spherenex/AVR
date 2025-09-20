@@ -216,10 +216,8 @@ export default function App() {
             borderColor: chartColor,
             backgroundColor: `${chartColor}20`, // 20 = 12.5% opacity
             borderWidth: 2,
-            pointRadius: 4,
+            pointRadius: 3,
             pointBackgroundColor: chartColor,
-            pointBorderColor: '#fff',
-            pointBorderWidth: 1,
             tension: 0.4,
           },
         ],
@@ -271,7 +269,8 @@ export default function App() {
                         if (hasStringValues && uniqueStringValues[value - 1]) {
                           return uniqueStringValues[value - 1];
                         }
-                        return value;
+                        // For numeric values, show with 1 decimal place
+                        return Number(value).toFixed(1);
                       }
                     },
                     grid: {

@@ -28,6 +28,20 @@ export default function App() {
   const [history, setHistory] = useState({});
   // Loading state
   const [loading, setLoading] = useState(true);
+  
+  // Mock data for demonstration - in real implementation this would come from Firebase
+  const [mockElectricalData, setMockElectricalData] = useState({
+    feedForwardStatus: 'Active',
+    activePower: 1250.5,
+    reactivePower: 350.2,
+    apparentPower: 1298.7,
+    powerFactor: 0.96,
+    inputCurrent: 5.42,
+    phaseACurrent: 4.85,
+    phaseBCurrent: 4.92,
+    phaseCCurrent: 4.88,
+    neutralCurrent: 0.15
+  });
 
   // Initialize history with current data when data first loads (after refresh)
   useEffect(() => {
@@ -90,6 +104,32 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Simulate real-time electrical data updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMockElectricalData(prev => {
+        // Check if system is activated from Firebase data
+        const isSystemActivated = data.System && data.System.toLowerCase() === 'activated';
+        
+        return {
+          ...prev,
+          feedForwardStatus: isSystemActivated ? 'Active' : 'Inactive',
+          activePower: isSystemActivated ? (1200 + Math.random() * 100).toFixed(1) : '0.0',
+          reactivePower: isSystemActivated ? (300 + Math.random() * 100).toFixed(1) : '0.0',
+          apparentPower: isSystemActivated ? (1250 + Math.random() * 100).toFixed(1) : '0.0',
+          powerFactor: isSystemActivated ? (0.92 + Math.random() * 0.08).toFixed(2) : '0.00',
+          inputCurrent: isSystemActivated ? (5.0 + Math.random() * 1.0).toFixed(2) : '0.00',
+          phaseACurrent: isSystemActivated ? (4.5 + Math.random() * 0.8).toFixed(2) : '0.00',
+          phaseBCurrent: isSystemActivated ? (4.6 + Math.random() * 0.8).toFixed(2) : '0.00',
+          phaseCCurrent: isSystemActivated ? (4.4 + Math.random() * 0.8).toFixed(2) : '0.00',
+          neutralCurrent: isSystemActivated ? (Math.random() * 0.3).toFixed(2) : '0.00'
+        };
+      });
+    }, 2000); // Update every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [data.System]); // Depend on system status
+
   // Helper function to get display name
   const getDisplayName = (key) => {
     return key.toLowerCase() === 'line' ? 'Grid' : key;
@@ -123,6 +163,46 @@ export default function App() {
       power: {
         icon: '⚡',
         bgGradient: 'var(--gradient-red)'
+      },
+      feedforward: {
+        icon: '🎯',
+        bgGradient: 'var(--gradient-blue)'
+      },
+      activepower: {
+        icon: '⚡',
+        bgGradient: 'var(--gradient-red)'
+      },
+      reactivepower: {
+        icon: '🔄',
+        bgGradient: 'var(--gradient-orange)'
+      },
+      apparentpower: {
+        icon: '📊',
+        bgGradient: 'var(--gradient-purple)'
+      },
+      powerfactor: {
+        icon: '📈',
+        bgGradient: 'var(--gradient-green)'
+      },
+      inputcurrent: {
+        icon: '🔌',
+        bgGradient: 'var(--gradient-teal)'
+      },
+      phaseacurrent: {
+        icon: '🔋',
+        bgGradient: 'var(--gradient-blue)'
+      },
+      phasebcurrent: {
+        icon: '🔋',
+        bgGradient: 'var(--gradient-green)'
+      },
+      phaseccurrent: {
+        icon: '🔋',
+        bgGradient: 'var(--gradient-orange)'
+      },
+      neutralcurrent: {
+        icon: '⚪',
+        bgGradient: 'var(--gradient-teal)'
       }
     };
     
@@ -133,8 +213,33 @@ export default function App() {
     };
   };
 
-  // Generate cards for each metric except 'Any'
-  const metricCards = Object.entries(data)
+  // Helper function to format electrical values
+  const formatElectricalValue = (key, value) => {
+    const keyLower = key.toLowerCase();
+    if (keyLower.includes('power') && keyLower !== 'powerfactor') {
+      return `${value} W`;
+    } else if (keyLower.includes('current')) {
+      return `${value} A`;
+    } else if (keyLower === 'powerfactor') {
+      return value;
+    } else if (keyLower === 'feedforwardstatus') {
+      return value;
+    }
+    return value;
+  };
+
+  // Helper function to get status-based styling for feed-forward
+  const getFeedForwardStatusStyle = (status) => {
+    const isActive = status && status.toString().toLowerCase() === 'active';
+    return {
+      color: isActive ? '#22c55e' : '#ef4444',
+      fontWeight: '600',
+      textShadow: isActive ? '0 0 10px rgba(34, 197, 94, 0.3)' : '0 0 10px rgba(239, 68, 68, 0.3)'
+    };
+  };
+
+  // Generate cards for original AVR metrics
+  const avrMetricCards = Object.entries(data)
     .filter(([key]) => key.toLowerCase() !== 'any')
     .map(([key, value]) => {
       const { icon, bgGradient } = getCardStyle(key);
@@ -157,6 +262,43 @@ export default function App() {
         </div>
       );
     });
+
+  // Generate cards for electrical measurements
+  const electricalMetricCards = Object.entries(mockElectricalData)
+    .map(([key, value]) => {
+      const { icon, bgGradient } = getCardStyle(key);
+      const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      const formattedValue = formatElectricalValue(key, value);
+      const isFeedForward = key.toLowerCase() === 'feedforwardstatus';
+      
+      return (
+        <div 
+          className="card"
+          key={key} 
+          style={{ background: bgGradient }}
+        >
+          <div className="card-content">
+            <span className="card-icon">{icon}</span>
+            <h2 className="card-title">{displayName}</h2>
+            <div className="card-value-container">
+              <p 
+                className="card-value"
+                style={isFeedForward ? getFeedForwardStatusStyle(value) : {}}
+              >
+                {formattedValue}
+              </p>
+              {isFeedForward && (
+                <div className={`status-indicator ${value.toLowerCase()}`}></div>
+              )}
+            </div>
+          </div>
+          <div className="card-glow"></div>
+        </div>
+      );
+    });
+
+  // Combine all metric cards
+  const metricCards = [...avrMetricCards, ...electricalMetricCards];
 
   // Helper function to convert string values to numbers for charting
   const convertValueForChart = (value, allValues) => {
@@ -333,13 +475,171 @@ export default function App() {
         </div>
       ) : (
         <>
+          {/* Feed-Forward Status Section */}
+          <div className="section-header">
+            <h2 className="section-title">
+              <span className="section-icon">🎯</span>
+              Feed-Forward Control
+            </h2>
+          </div>
+          <div className="cards-container feed-forward-section">
+            {electricalMetricCards.filter(card => 
+              card.key && card.key.toLowerCase().includes('feedforward')
+            ).length > 0 ? 
+              electricalMetricCards.filter(card => 
+                card.key && card.key.toLowerCase().includes('feedforward')
+              ) : 
+              <div className="card" style={{ background: 'var(--gradient-blue)' }}>
+                <div className="card-content">
+                  <span className="card-icon">🎯</span>
+                  <h2 className="card-title">Feed Forward Status</h2>
+                  <div className="card-value-container">
+                    <p 
+                      className="card-value"
+                      style={getFeedForwardStatusStyle(mockElectricalData.feedForwardStatus)}
+                    >
+                      {mockElectricalData.feedForwardStatus}
+                    </p>
+                    <div className={`status-indicator ${mockElectricalData.feedForwardStatus.toLowerCase()}`}></div>
+                  </div>
+                </div>
+                <div className="card-glow"></div>
+              </div>
+            }
+          </div>
+
+          {/* AVR System Metrics */}
+          <div className="section-header">
+            <h2 className="section-title">
+              <span className="section-icon">⚡</span>
+              AVR System Status
+            </h2>
+          </div>
           <div className="cards-container">
-            {metricCards.length > 0 ? metricCards : (
+            {avrMetricCards.length > 0 ? avrMetricCards : (
               <div className="empty-state">
-                <p>No metrics available. Waiting for data...</p>
+                <p>No AVR metrics available. Waiting for data...</p>
               </div>
             )}
           </div>
+
+          {/* Power Measurements Section - Only show when system is activated */}
+          {data.System && data.System.toLowerCase() === 'activated' && (
+            <>
+              <div className="section-header">
+                <h2 className="section-title">
+                  <span className="section-icon">⚡</span>
+                  Power Measurements
+                </h2>
+              </div>
+              <div className="cards-container power-section">
+                <div className="card" style={{ background: 'var(--gradient-red)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">⚡</span>
+                    <h2 className="card-title">Active Power</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.activePower} W</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-orange)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">🔄</span>
+                    <h2 className="card-title">Reactive Power</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.reactivePower} VAR</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-purple)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">📊</span>
+                    <h2 className="card-title">Apparent Power</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.apparentPower} VA</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-green)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">📈</span>
+                    <h2 className="card-title">Power Factor</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.powerFactor}</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Current Measurements Section - Only show when system is activated */}
+          {data.System && data.System.toLowerCase() === 'activated' && (
+            <>
+              <div className="section-header">
+                <h2 className="section-title">
+                  <span className="section-icon">🔋</span>
+                  Current Measurements
+                </h2>
+              </div>
+              <div className="cards-container current-section">
+                <div className="card" style={{ background: 'var(--gradient-teal)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">🔌</span>
+                    <h2 className="card-title">Input Current</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.inputCurrent} A</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-blue)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">🔋</span>
+                    <h2 className="card-title">Phase A Current</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.phaseACurrent} A</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-green)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">🔋</span>
+                    <h2 className="card-title">Phase B Current</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.phaseBCurrent} A</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-orange)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">🔋</span>
+                    <h2 className="card-title">Phase C Current</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.phaseCCurrent} A</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+                <div className="card" style={{ background: 'var(--gradient-teal)' }}>
+                  <div className="card-content">
+                    <span className="card-icon">⚪</span>
+                    <h2 className="card-title">Neutral Current</h2>
+                    <div className="card-value-container">
+                      <p className="card-value">{mockElectricalData.neutralCurrent} A</p>
+                    </div>
+                  </div>
+                  <div className="card-glow"></div>
+                </div>
+              </div>
+            </>
+          )}
           
           <div className="charts-container">
             {chartCards.length > 0 ? chartCards : (
@@ -357,3 +657,4 @@ export default function App() {
     </div>
   );
 }
+

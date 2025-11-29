@@ -741,7 +741,10 @@ export default function App() {
             const fieldMappings = {
               // Map 'line' history to 'Line' so charts reflect pole changes
               'line': 'Line',
+              'Line': 'Line',
               'vin': 'VIN',
+              'VIN': 'VIN',
+              'Vin': 'VIN',
               'ActivePower': 'ActivePower',
               'ReactivePower': 'ReactivePower',
               'ApparentPower': 'ApparentPower',
@@ -787,6 +790,8 @@ export default function App() {
           Object.entries(processedHistory).forEach(([k, arr]) => {
             merged[k] = arr;
           });
+          console.log('History from Firebase:', Object.keys(processedHistory));
+          console.log('Total history keys:', Object.keys(merged));
           return merged;
         });
       }
@@ -798,6 +803,34 @@ export default function App() {
       unsubscribeHistory();
     };
   }, []);
+
+  // Initialize history with current data when data first loads
+  useEffect(() => {
+    if (loading || !data) return;
+    
+    // Only initialize if history is empty or missing keys
+    setHistory(prev => {
+      const needsInit = !prev.Line || !prev.VIN;
+      if (!needsInit) return prev;
+      
+      const updated = { ...prev };
+      const currentTime = Date.now();
+      
+      // Initialize Line history if available
+      if (data.Line !== undefined && data.Line !== null && !prev.Line) {
+        updated.Line = [{ time: currentTime, value: data.Line }];
+        console.log('Initialized Line history:', data.Line);
+      }
+      
+      // Initialize VIN history if available
+      if (data.VIN !== undefined && data.VIN !== null && !prev.VIN) {
+        updated.VIN = [{ time: currentTime, value: data.VIN }];
+        console.log('Initialized VIN history:', data.VIN);
+      }
+      
+      return updated;
+    });
+  }, [loading, data]);
 
   // Capture LINE changes from the current AVR node and append to local history
   useEffect(() => {
@@ -818,6 +851,33 @@ export default function App() {
 
     lastLineValueRef.current = lineValue;
   }, [data.Line, loading]);
+
+  // Capture VIN changes from the current AVR node and append to local history
+  useEffect(() => {
+    if (loading) return;
+    const vinValue = data && data.VIN;
+    if (vinValue === undefined || vinValue === null) return;
+
+    console.log('VIN Value Captured:', vinValue);
+    setHistory(prev => {
+      const existing = prev.VIN || [];
+      const currentTime = Date.now();
+      const last = existing[existing.length - 1];
+      
+      // Add new point if value changed OR if enough time has passed (5 seconds)
+      const shouldAdd = !last || 
+                        String(last.value) !== String(vinValue) || 
+                        (currentTime - last.time > 5000);
+      
+      if (!shouldAdd) {
+        return prev;
+      }
+      
+      const updated = [...existing, { time: currentTime, value: vinValue }].slice(-50);
+      console.log('VIN History Updated:', updated.length, 'points, latest value:', vinValue);
+      return { ...prev, VIN: updated };
+    });
+  }, [data.VIN, loading]);
 
   // Simulate real-time electrical data updates
   useEffect(() => {
@@ -993,6 +1053,9 @@ export default function App() {
     const k = String(key).toLowerCase();
     return k === 'line' || k === 'vin';
   });
+
+  // Debug: Log chart entries to verify VIN data
+  console.log('Chart Entries:', chartEntries.map(([key, values]) => ({ key, count: values?.length || 0 })));
 
   return (
     <div className="dashboard-container">
